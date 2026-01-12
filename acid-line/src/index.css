@@ -4,33 +4,38 @@
  */
 
 :root {
-  /* Earth palette */
-  --bg-deep: #0d0c0a;
-  --bg-surface: #141310;
-  --bg-elevated: #1a1914;
-  --bg-hover: #242318;
+  /* Acid palette */
+  --bg-deep: #050505;
+  --bg-surface: #0a0a0a;
+  --bg-elevated: #121212;
+  --bg-hover: #1a1a1a;
 
-  /* Stone & sand */
-  --text-primary: #e5dfd5;
-  --text-muted: #8a857a;
-  --text-dim: #5a564e;
+  /* Yellow-forward text */
+  --text-primary: #f7f06b;
+  --text-muted: #d4cb57;
+  --text-dim: #8f873b;
 
-  /* Accent — ochre/sandstone */
-  --accent: #c9a66b;
-  --accent-dim: rgba(201, 166, 107, 0.4);
-  --accent-glow: rgba(201, 166, 107, 0.15);
+  /* Accent — acid yellow */
+  --accent: #fff169;
+  --accent-dim: rgba(255, 241, 105, 0.45);
+  --accent-glow: rgba(255, 241, 105, 0.2);
 
-  /* Rust for secondary accents */
-  --rust: #b35d4b;
-  --rust-dim: rgba(179, 93, 75, 0.4);
+  /* Secondary accents */
+  --rust: #ff5e3a;
+  --rust-dim: rgba(255, 94, 58, 0.35);
 
   /* Active/playing state */
-  --active: #e8c547;
-  --active-dim: rgba(232, 197, 71, 0.3);
+  --active: #ffe34d;
+  --active-dim: rgba(255, 227, 77, 0.3);
 
-  /* Errors stay red but warmer */
-  --error: #c75a4a;
-  --error-bg: rgba(199, 90, 74, 0.1);
+  /* Errors */
+  --error: #ff6b4a;
+  --error-bg: rgba(255, 107, 74, 0.12);
+
+  /* RGB split */
+  --rgb-cyan: rgba(0, 255, 255, 0.25);
+  --rgb-magenta: rgba(255, 0, 255, 0.22);
+  --rgb-red: rgba(255, 64, 64, 0.2);
 }
 
 * {
@@ -69,6 +74,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.5;
+  text-shadow: 0 0 0 transparent, 0.5px 0 var(--rgb-cyan), -0.5px 0 var(--rgb-magenta);
 }
 
 #root {

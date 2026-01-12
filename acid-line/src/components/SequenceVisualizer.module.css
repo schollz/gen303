@@ -13,4 +13,5 @@
   /* Smooth fade at edges */
   mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  box-shadow: 1px 0 0 var(--rgb-cyan), -1px 0 0 var(--rgb-magenta);
 }

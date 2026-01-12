@@ -83,6 +83,7 @@
   border-radius: 4px;
   transition: all 0.1s ease;
   border: 1px solid transparent;
+  box-shadow: 0.6px 0 0 var(--rgb-cyan), -0.6px 0 0 var(--rgb-magenta);
 }
 
 .cell:hover {

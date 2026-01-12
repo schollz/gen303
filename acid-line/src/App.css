@@ -22,6 +22,7 @@
   color: var(--accent);
   letter-spacing: 1px;
   margin: 0;
+  text-shadow: 0.6px 0 var(--rgb-cyan), -0.6px 0 var(--rgb-magenta), 0 0 10px var(--accent-glow);
 }
 
 .subtitle {
