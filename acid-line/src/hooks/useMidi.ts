@@ -105,6 +105,7 @@ export function useMidi(): UseMidiReturn {
     (note: number, velocity: number, channel: number = DEFAULT_CHANNEL) => {
       const status = 0x90 | (channel - 1);
       const vel = Math.max(0, Math.min(127, Math.round(velocity)));
+      console.log(`[${performance.now().toFixed(1)}ms] NOTE ON  - note: ${note}, vel: ${vel}`);
       send([status, note, vel]);
     },
     [send]
@@ -113,6 +114,7 @@ export function useMidi(): UseMidiReturn {
   const noteOff = useCallback(
     (note: number, channel: number = DEFAULT_CHANNEL) => {
       const status = 0x80 | (channel - 1);
+      console.log(`[${performance.now().toFixed(1)}ms] NOTE OFF - note: ${note}`);
       send([status, note, 0]);
     },
     [send]

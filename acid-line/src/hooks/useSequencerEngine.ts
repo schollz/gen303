@@ -13,21 +13,8 @@ interface UseSequencerEngineProps {
 }
 
 export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
-  const {
-    steps,
-    isPlaying,
-    currentStep,
-    tempo,
-    baseOctave,
-    modulations,
-    advanceStep,
-    setCurrentStep,
-    play,
-    stop,
-    updateModulationValue,
-  } = useSequencerStore();
-
   const intervalRef = useRef<number | null>(null);
+  const noteOffTimeoutRef = useRef<number | null>(null);
   const lastNoteRef = useRef<number | null>(null);
   const modulationPhaseRef = useRef<Record<ModulationTarget, number>>({
     envMod: 0,
@@ -38,20 +25,24 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
   });
   const lastModulationTimeRef = useRef<number>(0);
 
+  // Get store actions (these are stable)
+  const play = useSequencerStore((s) => s.play);
+  const stop = useSequencerStore((s) => s.stop);
+  const advanceStep = useSequencerStore((s) => s.advanceStep);
+  const setCurrentStep = useSequencerStore((s) => s.setCurrentStep);
+  const updateModulationValue = useSequencerStore((s) => s.updateModulationValue);
+
   // Calculate step duration in ms (sixteenth notes)
-  const getStepDuration = useCallback(() => {
-    // BPM is quarter notes per minute
-    // 16th note = 1/4 of a quarter note
+  const getStepDuration = useCallback((tempo: number) => {
     return (60000 / tempo) / 4;
-  }, [tempo]);
+  }, []);
 
   // Modulation oscillator value
   const getOscillatorValue = useCallback(
-    (target: ModulationTarget, phase: number): number => {
-      const mod = modulations[target];
+    (phase: number, low: number, high: number, oscillator: string): number => {
       let waveValue: number;
 
-      switch (mod.oscillator) {
+      switch (oscillator) {
         case 'sine':
           waveValue = Math.sin(phase * Math.PI * 2);
           break;
@@ -68,17 +59,17 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
           waveValue = Math.sin(phase * Math.PI * 2);
       }
 
-      // Map -1..1 to low..high
       const normalizedValue = (waveValue + 1) / 2;
-      return Math.round(mod.low + normalizedValue * (mod.high - mod.low));
+      return Math.round(low + normalizedValue * (high - low));
     },
-    [modulations]
+    []
   );
 
   // Send modulation CCs
   const sendModulations = useCallback(() => {
     if (!midi.isConnected) return;
 
+    const state = useSequencerStore.getState();
     const now = performance.now();
     const deltaTime = (now - lastModulationTimeRef.current) / 1000;
     lastModulationTimeRef.current = now;
@@ -86,154 +77,148 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
     const targets: ModulationTarget[] = ['envMod', 'accentLevel', 'resonance', 'cutoff', 'decay'];
 
     for (const target of targets) {
-      const mod = modulations[target];
+      const mod = state.modulations[target];
 
-      // Only process if enabled
       if (!mod.enabled) continue;
 
-      // Advance phase based on period (seconds)
-      // phase advances by deltaTime/period per update
       modulationPhaseRef.current[target] += deltaTime / mod.speed;
 
-      const value = getOscillatorValue(target, modulationPhaseRef.current[target]);
+      const value = getOscillatorValue(
+        modulationPhaseRef.current[target],
+        mod.low,
+        mod.high,
+        mod.oscillator
+      );
       midi.controlChange(TB03_CCS[target], value);
       updateModulationValue(target, value);
     }
-  }, [midi, modulations, getOscillatorValue, updateModulationValue]);
+  }, [midi, getOscillatorValue, updateModulationValue]);
 
-  // Play a step - mimics TB-03 internal sequencer timing
-  // TB-03 sends: Note On -> wait ~50% of step -> Note Off -> wait ~50% -> next Note On
-  const playStep = useCallback(
-    (stepIndex: number) => {
-      const step = steps[stepIndex];
-      const stepDuration = getStepDuration();
-      const gateTime = stepDuration * 0.55; // ~55% gate time like TB-03
+  // Play a single step - reads everything from store to avoid stale closures
+  const playStep = useCallback(() => {
+    const state = useSequencerStore.getState();
+    const stepIndex = state.currentStep;
+    const step = state.steps[stepIndex];
+    const tempo = state.tempo;
+    const baseOctave = state.baseOctave;
+    const steps = state.steps;
 
-      // If step is not active (rest), just skip
-      if (!step.active) {
-        return;
-      }
+    const stepDuration = getStepDuration(tempo);
+    const gateTime = stepDuration * 0.85;
 
-      // If tied to previous note, don't retrigger - just hold (no note-off scheduled)
-      if (step.tie && lastNoteRef.current !== null) {
-        return;
-      }
+    console.log(`[${performance.now().toFixed(0)}ms] playStep() - step ${stepIndex}`);
 
-      const midiNote = stepToMidiNote(step, baseOctave);
-      const velocity = getVelocity(step.accent);
+    // Clear any pending note-off
+    if (noteOffTimeoutRef.current !== null) {
+      console.log(`[${performance.now().toFixed(0)}ms] Clearing pending timeout`);
+      clearTimeout(noteOffTimeoutRef.current);
+      noteOffTimeoutRef.current = null;
+    }
 
-      // Handle slide (pitch bend to next note)
-      if (step.slide) {
-        const nextStepIndex = (stepIndex + 1) % steps.length;
-        const nextStep = steps[nextStepIndex];
-        if (nextStep.active) {
-          const nextMidiNote = stepToMidiNote(nextStep, baseOctave);
-          const bendSemitones = nextMidiNote - midiNote;
-          const bendValue = Math.max(-1, Math.min(1, bendSemitones / 12));
+    // If step is not active (rest), just skip
+    if (!step.active) {
+      console.log(`[${performance.now().toFixed(0)}ms] Step ${stepIndex} is REST`);
+      return;
+    }
 
-          midi.pitchBend(0);
-          setTimeout(() => {
-            midi.pitchBend(bendValue);
-          }, gateTime * 0.8);
-        }
-      } else {
-        midi.pitchBend(0);
-      }
+    // If tied to previous note, don't retrigger
+    if (step.tie && lastNoteRef.current !== null) {
+      console.log(`[${performance.now().toFixed(0)}ms] Step ${stepIndex} is TIED`);
+      return;
+    }
 
-      // Send note-on
-      midi.noteOn(midiNote, velocity);
-      lastNoteRef.current = midiNote;
+    const midiNote = stepToMidiNote(step, baseOctave);
+    const velocity = getVelocity(step.accent);
 
-      // Schedule note-off partway through the step (like TB-03)
-      // But only if the next step isn't tied
-      const nextStepIndex = (stepIndex + 1) % steps.length;
-      const nextStep = steps[nextStepIndex];
-      if (!nextStep.tie) {
-        setTimeout(() => {
-          midi.noteOff(midiNote);
-        }, gateTime);
-      }
-    },
-    [steps, baseOctave, midi, getStepDuration]
-  );
+    // Handle slide - CC 102 controls slide on TB-03
+    if (step.slide) {
+      midi.controlChange(102, 127);
+    } else {
+      midi.controlChange(102, 0);
+    }
 
-  // Main sequencer tick
-  const tick = useCallback(() => {
-    playStep(currentStep);
-    sendModulations();
-    advanceStep();
-  }, [currentStep, playStep, sendModulations, advanceStep]);
+    // Send note-on
+    console.log(`[${performance.now().toFixed(0)}ms] Step ${stepIndex}: note-on ${midiNote}, vel ${velocity}`);
+    midi.noteOn(midiNote, velocity);
+    lastNoteRef.current = midiNote;
+
+    // Schedule note-off
+    const nextStepIndex = (stepIndex + 1) % steps.length;
+    const nextStep = steps[nextStepIndex];
+    if (!nextStep.tie) {
+      console.log(`[${performance.now().toFixed(0)}ms] Scheduling note-off in ${gateTime.toFixed(0)}ms`);
+      noteOffTimeoutRef.current = window.setTimeout(() => {
+        console.log(`[${performance.now().toFixed(0)}ms] Timeout: note-off ${midiNote}`);
+        midi.noteOff(midiNote);
+        noteOffTimeoutRef.current = null;
+      }, gateTime);
+    }
+  }, [midi, getStepDuration]);
 
   // Start playback
   const handlePlay = useCallback(() => {
-    if (isPlaying) return;
+    const state = useSequencerStore.getState();
+    if (state.isPlaying) return;
+
+    console.log(`[${performance.now().toFixed(0)}ms] handlePlay()`);
 
     lastModulationTimeRef.current = performance.now();
     setCurrentStep(0);
     play();
 
-    // Immediate first tick
+    // Play first step immediately
     setTimeout(() => {
-      const stepDuration = getStepDuration();
-      playStep(0);
+      playStep();
       sendModulations();
 
-      intervalRef.current = window.setInterval(() => {
-        const state = useSequencerStore.getState();
-        const nextStep = (state.currentStep + 1) % state.stepCount;
+      // Set up interval for subsequent steps
+      const tempo = useSequencerStore.getState().tempo;
+      const stepDuration = getStepDuration(tempo);
 
-        playStep(nextStep);
-        sendModulations();
+      intervalRef.current = window.setInterval(() => {
         advanceStep();
+        playStep();
+        sendModulations();
       }, stepDuration);
-    }, 0);
-  }, [isPlaying, setCurrentStep, play, getStepDuration, playStep, sendModulations, advanceStep]);
+    }, 10);
+  }, [setCurrentStep, play, playStep, sendModulations, advanceStep, getStepDuration]);
 
   // Stop playback
   const handleStop = useCallback(() => {
+    console.log(`[${performance.now().toFixed(0)}ms] handleStop()`);
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
-    // Release any held note
+    if (noteOffTimeoutRef.current !== null) {
+      clearTimeout(noteOffTimeoutRef.current);
+      noteOffTimeoutRef.current = null;
+    }
+
     if (lastNoteRef.current !== null) {
       midi.noteOff(lastNoteRef.current);
       lastNoteRef.current = null;
     }
 
-    // Reset pitch bend
     midi.pitchBend(0);
-
-    // All notes off
     midi.allNotesOff();
 
     stop();
   }, [midi, stop]);
 
-  // Update interval when tempo changes during playback
-  useEffect(() => {
-    if (isPlaying && intervalRef.current) {
-      clearInterval(intervalRef.current);
-      const stepDuration = getStepDuration();
-      intervalRef.current = window.setInterval(() => {
-        tick();
-      }, stepDuration);
-    }
-  }, [tempo, isPlaying, tick, getStepDuration]);
-
-  // Cleanup on unmount
+  // Cleanup on unmount only
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
-      if (midi.isConnected && lastNoteRef.current !== null) {
-        midi.noteOff(lastNoteRef.current);
-        midi.allNotesOff();
+      if (noteOffTimeoutRef.current) {
+        clearTimeout(noteOffTimeoutRef.current);
       }
     };
-  }, [midi]);
+  }, []);
 
   return {
     play: handlePlay,

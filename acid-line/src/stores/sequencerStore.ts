@@ -106,12 +106,19 @@ const getRandomNote = (): NoteName => {
 };
 
 export const useSequencerStore = create<SequencerState>((set) => ({
-  // Initial state - start with random sequence
-  steps: Array.from({ length: 16 }, createRandomStep),
+  // Initial state - start with cleared sequence for debugging
+  steps: Array.from({ length: 16 }, () => ({
+    note: 'C' as NoteName,
+    octave: 0,
+    accent: false,
+    slide: false,
+    tie: false,
+    active: true,
+  })),
   stepCount: 16,
   isPlaying: false,
   currentStep: 0,
-  tempo: 160,
+  tempo: 60,
   baseOctave: 3,
 
   modulations: {
