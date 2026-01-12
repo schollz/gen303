@@ -1,0 +1,113 @@
+/*
+ * acid-line — geological palette
+ * Warm earth tones, Tufte-inspired minimalism
+ */
+
+:root {
+  /* Earth palette */
+  --bg-deep: #0d0c0a;
+  --bg-surface: #141310;
+  --bg-elevated: #1a1914;
+  --bg-hover: #242318;
+
+  /* Stone & sand */
+  --text-primary: #e5dfd5;
+  --text-muted: #8a857a;
+  --text-dim: #5a564e;
+
+  /* Accent — ochre/sandstone */
+  --accent: #c9a66b;
+  --accent-dim: rgba(201, 166, 107, 0.4);
+  --accent-glow: rgba(201, 166, 107, 0.15);
+
+  /* Rust for secondary accents */
+  --rust: #b35d4b;
+  --rust-dim: rgba(179, 93, 75, 0.4);
+
+  /* Active/playing state */
+  --active: #e8c547;
+  --active-dim: rgba(232, 197, 71, 0.3);
+
+  /* Errors stay red but warmer */
+  --error: #c75a4a;
+  --error-bg: rgba(199, 90, 74, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+::-webkit-scrollbar-corner {
+  background: var(--bg-deep);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-elevated) var(--bg-deep);
+}
+
+body {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  font-feature-settings: 'liga' on, 'calt' on;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+input, select {
+  font-family: inherit;
+  background: var(--bg-elevated);
+  border: 1px solid var(--bg-elevated);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a564e' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+/* Disable tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
