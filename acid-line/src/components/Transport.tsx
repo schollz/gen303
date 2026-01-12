@@ -1,4 +1,5 @@
-import { useSequencerStore } from '../stores/sequencerStore';
+import { useEffect, useState } from 'react';
+import { NOTE_NAMES, type NoteName, type ScaleType, useSequencerStore } from '../stores/sequencerStore';
 import styles from './Transport.module.css';
 
 interface TransportProps {
@@ -7,8 +8,43 @@ interface TransportProps {
 }
 
 export function Transport({ onPlay, onStop }: TransportProps) {
-  const { isPlaying, tempo, setTempo, baseOctave, setBaseOctave, randomizeAll, clearAll } =
+  const {
+    isPlaying,
+    tempo,
+    setTempo,
+    baseOctave,
+    setBaseOctave,
+    keyRoot,
+    setKeyRoot,
+    scaleType,
+    setScaleType,
+    randomizeAll,
+    clearAll,
+  } =
     useSequencerStore();
+
+  const [tempoInput, setTempoInput] = useState(`${tempo}`);
+
+  useEffect(() => {
+    setTempoInput(`${tempo}`);
+  }, [tempo]);
+
+  const handleTempoChange = (value: string) => {
+    setTempoInput(value);
+    if (/^\d+$/.test(value)) {
+      setTempo(parseInt(value, 10));
+    }
+  };
+
+  const handleTempoBlur = () => {
+    const parsed = parseInt(tempoInput, 10);
+    if (Number.isFinite(parsed)) {
+      setTempo(parsed);
+      setTempoInput(`${Math.max(30, Math.min(300, parsed))}`);
+      return;
+    }
+    setTempoInput(`${tempo}`);
+  };
 
   return (
     <div className={styles.container}>
@@ -42,11 +78,12 @@ export function Transport({ onPlay, onStop }: TransportProps) {
         <div className={styles.control}>
           <label className={styles.label}>BPM</label>
           <input
-            type="number"
-            min={30}
-            max={300}
-            value={tempo}
-            onChange={(e) => setTempo(parseInt(e.target.value) || 120)}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={tempoInput}
+            onChange={(e) => handleTempoChange(e.target.value)}
+            onBlur={handleTempoBlur}
             className={styles.numberInput}
           />
         </div>
@@ -61,6 +98,33 @@ export function Transport({ onPlay, onStop }: TransportProps) {
             onChange={(e) => setBaseOctave(parseInt(e.target.value) || 3)}
             className={styles.numberInput}
           />
+        </div>
+
+        <div className={styles.control}>
+          <label className={styles.label}>KEY</label>
+          <select
+            value={keyRoot}
+            onChange={(e) => setKeyRoot(e.target.value as NoteName)}
+            className={styles.selectInput}
+          >
+            {NOTE_NAMES.map((note) => (
+              <option key={note} value={note}>
+                {note}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.control}>
+          <label className={styles.label}>SCALE</label>
+          <select
+            value={scaleType}
+            onChange={(e) => setScaleType(e.target.value as ScaleType)}
+            className={styles.selectInput}
+          >
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+          </select>
         </div>
       </div>
 

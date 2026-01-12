@@ -19,7 +19,9 @@ const MODULATION_LABELS: Record<ModulationTarget, string> = {
 function App() {
   const midi = useMidi();
   const { play, stop } = useSequencerEngine({ midi });
-  const { modulations, toggleModulation, setModulationParam } = useSequencerStore();
+  const modulations = useSequencerStore((state) => state.modulations);
+  const toggleModulation = useSequencerStore((state) => state.toggleModulation);
+  const setModulationParam = useSequencerStore((state) => state.setModulationParam);
 
   return (
     <div className="app">

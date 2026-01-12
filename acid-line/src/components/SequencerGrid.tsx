@@ -6,6 +6,8 @@ export function SequencerGrid() {
     steps,
     currentStep,
     isPlaying,
+    rowLocks,
+    toggleRowLock,
     setNote,
     setOctave,
     toggleAccent,
@@ -28,6 +30,29 @@ export function SequencerGrid() {
     setOctave(stepIndex, nextOctave);
   };
 
+  const renderRowLabel = (label: string) => <div className={styles.label}>{label}</div>;
+
+  const renderRowLock = (lockKey: keyof typeof rowLocks) => (
+    <div className={styles.lockCell}>
+      <button
+        className={`${styles.lockBtn} ${rowLocks[lockKey] ? styles.locked : ''}`}
+        onClick={() => toggleRowLock(lockKey)}
+        title={rowLocks[lockKey] ? 'Unlock row' : 'Lock row'}
+        type="button"
+      >
+        {rowLocks[lockKey] ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17 8h-1V6a4 4 0 00-8 0v2H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V10a2 2 0 00-2-2zm-6 0V6a2 2 0 014 0v2h-4z" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17 8h-6V6a2 2 0 014 0h2a4 4 0 00-8 0v2H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V10a2 2 0 00-2-2z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+
   return (
     <div className={styles.container}>
       {/* Step numbers */}
@@ -45,7 +70,7 @@ export function SequencerGrid() {
 
       {/* Note row */}
       <div className={styles.row}>
-        <div className={styles.label}>NOTE</div>
+        {renderRowLabel('NOTE')}
         {steps.map((step, i) => (
           <div
             key={i}
@@ -76,11 +101,12 @@ export function SequencerGrid() {
             </button>
           </div>
         ))}
+        {renderRowLock('note')}
       </div>
 
       {/* Octave row */}
       <div className={styles.row}>
-        <div className={styles.label}>OCT</div>
+        {renderRowLabel('OCT')}
         {steps.map((step, i) => (
           <button
             key={i}
@@ -92,11 +118,12 @@ export function SequencerGrid() {
             {step.octave > 0 ? `+${step.octave}` : step.octave === 0 ? '0' : step.octave}
           </button>
         ))}
+        {renderRowLock('octave')}
       </div>
 
       {/* Accent row */}
       <div className={styles.row}>
-        <div className={styles.label}>ACC</div>
+        {renderRowLabel('ACC')}
         {steps.map((step, i) => (
           <button
             key={i}
@@ -108,11 +135,12 @@ export function SequencerGrid() {
             </svg>
           </button>
         ))}
+        {renderRowLock('accent')}
       </div>
 
       {/* Slide row */}
       <div className={styles.row}>
-        <div className={styles.label}>SLD</div>
+        {renderRowLabel('SLD')}
         {steps.map((step, i) => (
           <button
             key={i}
@@ -124,11 +152,12 @@ export function SequencerGrid() {
             </svg>
           </button>
         ))}
+        {renderRowLock('slide')}
       </div>
 
       {/* Tie row */}
       <div className={styles.row}>
-        <div className={styles.label}>TIE</div>
+        {renderRowLabel('TIE')}
         {steps.map((step, i) => (
           <button
             key={i}
@@ -143,11 +172,12 @@ export function SequencerGrid() {
             </svg>
           </button>
         ))}
+        {renderRowLock('tie')}
       </div>
 
       {/* Active/Rest row */}
       <div className={styles.row}>
-        <div className={styles.label}>ON</div>
+        {renderRowLabel('ON')}
         {steps.map((step, i) => (
           <button
             key={i}
@@ -165,6 +195,7 @@ export function SequencerGrid() {
             )}
           </button>
         ))}
+        {renderRowLock('active')}
       </div>
     </div>
   );

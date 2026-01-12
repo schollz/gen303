@@ -4,6 +4,8 @@ import { create } from 'zustand';
 export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 export type NoteName = typeof NOTE_NAMES[number];
 
+export type ScaleType = 'major' | 'minor';
+
 export interface Step {
   note: NoteName;
   octave: number; // -1, 0, +1 relative to base octave
@@ -38,16 +40,22 @@ export const TB03_CCS = {
 
 export type ModulationTarget = keyof typeof TB03_CCS;
 
+const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11] as const;
+const MINOR_SCALE_INTERVALS = [0, 2, 3, 5, 7, 8, 10] as const;
+
 interface SequencerState {
   // Sequence data
   steps: Step[];
   stepCount: number;
+  rowLocks: Record<'note' | 'octave' | 'accent' | 'slide' | 'tie' | 'active', boolean>;
 
   // Transport
   isPlaying: boolean;
   currentStep: number;
   tempo: number; // BPM
   baseOctave: number; // MIDI octave (3 = C3)
+  keyRoot: NoteName;
+  scaleType: ScaleType;
 
   // Modulation
   modulations: Record<ModulationTarget, ModulationState>;
@@ -63,6 +71,8 @@ interface SequencerState {
 
   setTempo: (tempo: number) => void;
   setBaseOctave: (octave: number) => void;
+  setKeyRoot: (note: NoteName) => void;
+  setScaleType: (scale: ScaleType) => void;
 
   play: () => void;
   stop: () => void;
@@ -81,6 +91,7 @@ interface SequencerState {
   // Utility
   randomizeAll: () => void;
   clearAll: () => void;
+  toggleRowLock: (row: 'note' | 'octave' | 'accent' | 'slide' | 'tie' | 'active') => void;
 }
 
 const createRandomStep = (): Step => ({
@@ -96,13 +107,20 @@ const createDefaultModulation = (): ModulationState => ({
   enabled: false,
   low: 20,
   high: 100,
-  speed: 4, // Period in seconds
+  speed: 2 + Math.random() * 10, // Period in seconds
   oscillator: 'sine',
   currentValue: 60,
 });
 
-const getRandomNote = (): NoteName => {
-  return NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)];
+const getScaleNotes = (root: NoteName, scaleType: ScaleType): NoteName[] => {
+  const intervals = scaleType === 'minor' ? MINOR_SCALE_INTERVALS : MAJOR_SCALE_INTERVALS;
+  const rootIndex = NOTE_NAMES.indexOf(root);
+  return intervals.map((interval) => NOTE_NAMES[(rootIndex + interval) % NOTE_NAMES.length]);
+};
+
+const getRandomNote = (root: NoteName, scaleType: ScaleType): NoteName => {
+  const scaleNotes = getScaleNotes(root, scaleType);
+  return scaleNotes[Math.floor(Math.random() * scaleNotes.length)];
 };
 
 export const useSequencerStore = create<SequencerState>((set) => ({
@@ -116,10 +134,20 @@ export const useSequencerStore = create<SequencerState>((set) => ({
     active: true,
   })),
   stepCount: 16,
+  rowLocks: {
+    note: false,
+    octave: false,
+    accent: false,
+    slide: false,
+    tie: false,
+    active: true,
+  },
   isPlaying: false,
   currentStep: 0,
-  tempo: 60,
+  tempo: 120,
   baseOctave: 3,
+  keyRoot: 'C' as NoteName,
+  scaleType: 'major' as ScaleType,
 
   modulations: {
     envMod: createDefaultModulation(),
@@ -175,12 +203,19 @@ export const useSequencerStore = create<SequencerState>((set) => ({
   randomizeNote: (stepIndex) =>
     set((state) => ({
       steps: state.steps.map((step, i) =>
-        i === stepIndex ? { ...step, note: getRandomNote() } : step
+        i === stepIndex
+          ? {
+              ...step,
+              note: state.rowLocks.note ? step.note : getRandomNote(state.keyRoot, state.scaleType),
+            }
+          : step
       ),
     })),
 
   setTempo: (tempo) => set({ tempo: Math.max(30, Math.min(300, tempo)) }),
   setBaseOctave: (octave) => set({ baseOctave: Math.max(1, Math.min(6, octave)) }),
+  setKeyRoot: (note) => set({ keyRoot: note }),
+  setScaleType: (scale) => set({ scaleType: scale }),
 
   play: () => set({ isPlaying: true }),
   stop: () => set({ isPlaying: false, currentStep: 0 }),
@@ -227,13 +262,13 @@ export const useSequencerStore = create<SequencerState>((set) => ({
   // Utility actions
   randomizeAll: () =>
     set((state) => ({
-      steps: state.steps.map(() => ({
-        note: getRandomNote(),
-        octave: Math.floor(Math.random() * 3) - 1,
-        accent: Math.random() > 0.7,
-        slide: Math.random() > 0.8,
-        tie: false,
-        active: Math.random() > 0.2,
+      steps: state.steps.map((step) => ({
+        note: state.rowLocks.note ? step.note : getRandomNote(state.keyRoot, state.scaleType),
+        octave: state.rowLocks.octave ? step.octave : Math.floor(Math.random() * 3) - 1,
+        accent: state.rowLocks.accent ? step.accent : Math.random() > 0.7,
+        slide: state.rowLocks.slide ? step.slide : Math.random() > 0.8,
+        tie: state.rowLocks.tie ? step.tie : false,
+        active: state.rowLocks.active ? step.active : Math.random() > 0.2,
       })),
     })),
 
@@ -249,6 +284,13 @@ export const useSequencerStore = create<SequencerState>((set) => ({
       })),
       currentStep: 0,
     }),
+  toggleRowLock: (row) =>
+    set((state) => ({
+      rowLocks: {
+        ...state.rowLocks,
+        [row]: !state.rowLocks[row],
+      },
+    })),
 }));
 
 // Helper to convert step to MIDI note

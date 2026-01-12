@@ -26,11 +26,12 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
   const lastModulationTimeRef = useRef<number>(0);
 
   // Get store actions (these are stable)
+  const tempo = useSequencerStore((s) => s.tempo);
+  const isPlaying = useSequencerStore((s) => s.isPlaying);
   const play = useSequencerStore((s) => s.play);
   const stop = useSequencerStore((s) => s.stop);
   const advanceStep = useSequencerStore((s) => s.advanceStep);
   const setCurrentStep = useSequencerStore((s) => s.setCurrentStep);
-  const updateModulationValue = useSequencerStore((s) => s.updateModulationValue);
 
   // Calculate step duration in ms (sixteenth notes)
   const getStepDuration = useCallback((tempo: number) => {
@@ -90,9 +91,8 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
         mod.oscillator
       );
       midi.controlChange(TB03_CCS[target], value);
-      updateModulationValue(target, value);
     }
-  }, [midi, getOscillatorValue, updateModulationValue]);
+  }, [midi, getOscillatorValue]);
 
   // Play a single step - reads everything from store to avoid stale closures
   const playStep = useCallback(() => {
@@ -207,6 +207,18 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
 
     stop();
   }, [midi, stop]);
+
+  useEffect(() => {
+    if (!isPlaying || intervalRef.current === null) return;
+
+    clearInterval(intervalRef.current);
+    const stepDuration = getStepDuration(tempo);
+    intervalRef.current = window.setInterval(() => {
+      advanceStep();
+      playStep();
+      sendModulations();
+    }, stepDuration);
+  }, [tempo, isPlaying, advanceStep, playStep, sendModulations, getStepDuration]);
 
   // Cleanup on unmount only
   useEffect(() => {

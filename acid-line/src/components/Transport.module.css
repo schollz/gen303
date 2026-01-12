@@ -64,6 +64,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+.selectInput {
+  width: 64px;
+  height: 36px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .numberInput::-webkit-outer-spin-button,
 .numberInput::-webkit-inner-spin-button {
   -webkit-appearance: none;

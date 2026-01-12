@@ -6,6 +6,14 @@ export function SequenceVisualizer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const { steps, currentStep, isPlaying } = useSequencerStore();
+  const stepCount = steps.length;
+  const labelWidth = 48;
+  const lockWidth = 28;
+  const cellWidth = 44;
+  const gap = 4;
+  const barPadding = 6;
+  const canvasWidth =
+    labelWidth + gap + stepCount * cellWidth + (stepCount - 1) * gap + gap + lockWidth;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -23,8 +31,9 @@ export function SequenceVisualizer() {
 
     const width = rect.width;
     const height = rect.height;
-    const barWidth = width / 16;
-    const padding = 4;
+    const barWidth = cellWidth;
+    const stride = cellWidth + gap;
+    const leftOffset = labelWidth + gap;
 
     const draw = () => {
       // Clear
@@ -33,7 +42,7 @@ export function SequenceVisualizer() {
 
       // Draw steps as bars
       steps.forEach((step, i) => {
-        const x = i * barWidth + padding / 2;
+        const x = leftOffset + i * stride + barPadding / 2;
         const noteIndex = NOTE_NAMES.indexOf(step.note);
         const noteHeight = (noteIndex + 1) / 12;
         const octaveOffset = (step.octave + 1) / 3;
@@ -57,7 +66,7 @@ export function SequenceVisualizer() {
 
         // Draw bar
         ctx.fillStyle = barColor;
-        ctx.fillRect(x, y, barWidth - padding, barHeight);
+        ctx.fillRect(x, y, barWidth - barPadding, barHeight);
 
         // Draw slide indicator (connecting line to next)
         if (step.slide && step.active) {
@@ -70,12 +79,13 @@ export function SequenceVisualizer() {
             const nextCombinedHeight = (nextNoteHeight * 0.6 + nextOctaveOffset * 0.4);
             const nextBarHeight = nextCombinedHeight * (height - 20);
             const nextY = height - nextBarHeight - 10;
+            const nextX = leftOffset + nextIndex * stride + barPadding / 2;
 
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(201, 166, 107, 0.4)';
             ctx.lineWidth = 2;
-            ctx.moveTo(x + barWidth - padding, y);
-            ctx.lineTo(x + barWidth + padding / 2, nextY);
+            ctx.moveTo(x + barWidth - barPadding, y);
+            ctx.lineTo(nextX, nextY);
             ctx.stroke();
           }
         }
@@ -86,7 +96,7 @@ export function SequenceVisualizer() {
           ctx.strokeStyle = 'rgba(201, 166, 107, 0.6)';
           ctx.lineWidth = 2;
           ctx.setLineDash([4, 2]);
-          ctx.moveTo(x - padding, y + barHeight / 2);
+          ctx.moveTo(x - barPadding, y + barHeight / 2);
           ctx.lineTo(x, y + barHeight / 2);
           ctx.stroke();
           ctx.setLineDash([]);
@@ -96,7 +106,7 @@ export function SequenceVisualizer() {
         if (step.accent && step.active) {
           ctx.beginPath();
           ctx.fillStyle = 'rgba(179, 93, 75, 0.8)';
-          const triangleX = x + (barWidth - padding) / 2;
+          const triangleX = x + (barWidth - barPadding) / 2;
           ctx.moveTo(triangleX - 4, y - 4);
           ctx.lineTo(triangleX + 4, y - 4);
           ctx.lineTo(triangleX, y - 10);
@@ -107,7 +117,7 @@ export function SequenceVisualizer() {
 
       // Draw playhead
       if (isPlaying) {
-        const playheadX = currentStep * barWidth + barWidth / 2;
+        const playheadX = leftOffset + currentStep * stride + barWidth / 2;
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(232, 197, 71, 0.5)';
         ctx.lineWidth = 2;
@@ -126,11 +136,15 @@ export function SequenceVisualizer() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [steps, currentStep, isPlaying]);
+  }, [steps, currentStep, isPlaying, stepCount, canvasWidth]);
 
   return (
     <div className={styles.container}>
-      <canvas ref={canvasRef} className={styles.canvas} />
+      <canvas
+        ref={canvasRef}
+        className={styles.canvas}
+        style={{ width: `${canvasWidth}px` }}
+      />
     </div>
   );
 }
