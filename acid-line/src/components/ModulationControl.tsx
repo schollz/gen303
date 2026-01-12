@@ -71,17 +71,21 @@ export function ModulationControl({
           </div>
 
           <div className={styles.row}>
-            <label className={styles.label}>Speed</label>
+            <label className={styles.label}>Period</label>
             <input
               type="range"
-              min={1}
-              max={100}
-              value={state.speed * 10}
-              onChange={(e) => onParamChange('speed', parseInt(e.target.value) / 10)}
+              min={0}
+              max={1000}
+              value={Math.round((Math.log10(state.speed) + 1) * 333)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                const period = Math.pow(10, val / 333 - 1);
+                onParamChange('speed', period);
+              }}
               className={styles.slider}
               disabled={!state.enabled}
             />
-            <span className={styles.value}>{state.speed.toFixed(1)}</span>
+            <span className={styles.value}>{state.speed < 1 ? state.speed.toFixed(1) : state.speed < 10 ? state.speed.toFixed(1) : state.speed.toFixed(0)}s</span>
           </div>
 
           <div className={styles.row}>

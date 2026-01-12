@@ -18,7 +18,7 @@ export type OscillatorType = 'sine' | 'saw' | 'square' | 'triangle';
 export interface ModulationParams {
   low: number; // 0-127
   high: number; // 0-127
-  speed: number; // Hz (0.1 - 10)
+  speed: number; // Period in seconds (0.1 - 100)
   oscillator: OscillatorType;
 }
 
@@ -83,20 +83,20 @@ interface SequencerState {
   clearAll: () => void;
 }
 
-const createDefaultStep = (): Step => ({
-  note: 'C',
-  octave: 0,
-  accent: false,
-  slide: false,
+const createRandomStep = (): Step => ({
+  note: NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)],
+  octave: Math.floor(Math.random() * 3) - 1,
+  accent: Math.random() > 0.7,
+  slide: Math.random() > 0.8,
   tie: false,
-  active: true,
+  active: Math.random() > 0.2,
 });
 
 const createDefaultModulation = (): ModulationState => ({
   enabled: false,
   low: 20,
   high: 100,
-  speed: 0.5,
+  speed: 4, // Period in seconds
   oscillator: 'sine',
   currentValue: 60,
 });
@@ -106,12 +106,12 @@ const getRandomNote = (): NoteName => {
 };
 
 export const useSequencerStore = create<SequencerState>((set) => ({
-  // Initial state
-  steps: Array.from({ length: 16 }, createDefaultStep),
+  // Initial state - start with random sequence
+  steps: Array.from({ length: 16 }, createRandomStep),
   stepCount: 16,
   isPlaying: false,
   currentStep: 0,
-  tempo: 130,
+  tempo: 160,
   baseOctave: 3,
 
   modulations: {
@@ -232,7 +232,14 @@ export const useSequencerStore = create<SequencerState>((set) => ({
 
   clearAll: () =>
     set({
-      steps: Array.from({ length: 16 }, createDefaultStep),
+      steps: Array.from({ length: 16 }, () => ({
+        note: 'C' as NoteName,
+        octave: 0,
+        accent: false,
+        slide: false,
+        tie: false,
+        active: true,
+      })),
       currentStep: 0,
     }),
 }));

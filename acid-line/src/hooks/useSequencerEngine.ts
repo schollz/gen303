@@ -91,8 +91,9 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
       // Only process if enabled
       if (!mod.enabled) continue;
 
-      // Advance phase based on speed (Hz)
-      modulationPhaseRef.current[target] += mod.speed * deltaTime;
+      // Advance phase based on period (seconds)
+      // phase advances by deltaTime/period per update
+      modulationPhaseRef.current[target] += deltaTime / mod.speed;
 
       const value = getOscillatorValue(target, modulationPhaseRef.current[target]);
       midi.controlChange(TB03_CCS[target], value);
@@ -100,30 +101,21 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
     }
   }, [midi, modulations, getOscillatorValue, updateModulationValue]);
 
-  // Play a step
+  // Play a step - mimics TB-03 internal sequencer timing
+  // TB-03 sends: Note On -> wait ~50% of step -> Note Off -> wait ~50% -> next Note On
   const playStep = useCallback(
     (stepIndex: number) => {
       const step = steps[stepIndex];
+      const stepDuration = getStepDuration();
+      const gateTime = stepDuration * 0.55; // ~55% gate time like TB-03
 
-      // Release previous note if not sliding and not tied
-      if (lastNoteRef.current !== null && !step.tie) {
-        midi.noteOff(lastNoteRef.current);
-        lastNoteRef.current = null;
-      }
-
-      // If step is not active (rest), skip
+      // If step is not active (rest), just skip
       if (!step.active) {
-        // If tied, we still hold the previous note
-        if (!step.tie && lastNoteRef.current !== null) {
-          midi.noteOff(lastNoteRef.current);
-          lastNoteRef.current = null;
-        }
         return;
       }
 
-      // If tied to previous note, don't retrigger
+      // If tied to previous note, don't retrigger - just hold (no note-off scheduled)
       if (step.tie && lastNoteRef.current !== null) {
-        // Just continue holding the note
         return;
       }
 
@@ -137,24 +129,30 @@ export function useSequencerEngine({ midi }: UseSequencerEngineProps) {
         if (nextStep.active) {
           const nextMidiNote = stepToMidiNote(nextStep, baseOctave);
           const bendSemitones = nextMidiNote - midiNote;
-          // Bend range is typically +/- 2 semitones for TB-03
-          // Full bend = 12 semitones, so calculate ratio
           const bendValue = Math.max(-1, Math.min(1, bendSemitones / 12));
 
-          // Start at 0, ramp to target during step
           midi.pitchBend(0);
           setTimeout(() => {
             midi.pitchBend(bendValue);
-          }, getStepDuration() * 0.7);
+          }, gateTime * 0.8);
         }
       } else {
-        // Reset pitch bend
         midi.pitchBend(0);
       }
 
-      // Send note on
+      // Send note-on
       midi.noteOn(midiNote, velocity);
       lastNoteRef.current = midiNote;
+
+      // Schedule note-off partway through the step (like TB-03)
+      // But only if the next step isn't tied
+      const nextStepIndex = (stepIndex + 1) % steps.length;
+      const nextStep = steps[nextStepIndex];
+      if (!nextStep.tie) {
+        setTimeout(() => {
+          midi.noteOff(midiNote);
+        }, gateTime);
+      }
     },
     [steps, baseOctave, midi, getStepDuration]
   );

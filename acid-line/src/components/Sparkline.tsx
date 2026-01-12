@@ -94,16 +94,40 @@ export function Sparkline({
       }
       ctx.stroke();
 
-      // Draw current value marker
-      const currentY = height - (currentValue / 127) * height;
+      // Draw current value marker at the head of the wave
+      // Calculate the wave value at the right edge (where t = 2*PI + phase)
+      const headT = Math.PI * 2 + phaseRef.current;
+      let headWaveValue: number;
+      switch (oscillator) {
+        case 'sine':
+          headWaveValue = Math.sin(headT);
+          break;
+        case 'saw':
+          headWaveValue = ((headT % (Math.PI * 2)) / Math.PI) - 1;
+          break;
+        case 'square':
+          headWaveValue = Math.sin(headT) > 0 ? 1 : -1;
+          break;
+        case 'triangle':
+          headWaveValue = (2 / Math.PI) * Math.asin(Math.sin(headT));
+          break;
+        default:
+          headWaveValue = Math.sin(headT);
+      }
+      const headNormalized = (headWaveValue + 1) / 2;
+      const headMapped = low + headNormalized * (high - low);
+      const headY = height - (headMapped / 127) * height;
+
       ctx.beginPath();
-      ctx.arc(width - 8, currentY, 4, 0, Math.PI * 2);
+      ctx.arc(width - 8, headY, 4, 0, Math.PI * 2);
       ctx.fillStyle = markerColor;
       ctx.fill();
 
       // Update phase for animation (only when enabled)
+      // speed is period in seconds, so phase advance = 1/period per second
+      // At ~60fps, each frame is ~16.67ms = 0.01667s
       if (enabled) {
-        phaseRef.current += speed * 0.05;
+        phaseRef.current += 0.016 / speed;
       }
 
       animationRef.current = requestAnimationFrame(draw);
